@@ -17,7 +17,7 @@ CACHE_FILE = 'video_agent/cache.db'
 
 # 搜索配置
 MAX_RESULTS_PER_PLATFORM = 50  # 每个平台获取的候选视频数
-MIN_VIEWS = 200000  # 最小播放量
+MIN_VIEWS = 100000  # 最小播放量（降低到10万，提高通过率）
 MAX_DAYS_AGO = 60  # 最近N天内的视频
 TOP_N_RESULTS = 10  # 最终返回的视频数量
 

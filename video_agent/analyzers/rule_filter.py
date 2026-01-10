@@ -28,39 +28,49 @@ class RuleFilter:
         
         Args:
             videos: 候选视频列表
-            topic: 搜索主题
+            topic: 搜索主题（仅用于日志，不再用于关键词匹配）
             target_count: 目标保留数量
             
         Returns:
             筛选后的视频列表
         """
         logger.info(f"开始规则筛选: 输入{len(videos)}个视频, 目标{target_count}个")
+        logger.info(f"筛选条件: 播放量≥{self.min_views:,}, 发布时间≤{self.max_days_ago}天")
         
         filtered = []
+        stats = {
+            'views': 0,
+            'time': 0,
+            'passed': 0
+        }
         
         for video in videos:
             # 规则1：播放量检查
             if video['views'] < self.min_views:
-                logger.debug(f"❌ 播放量不足: {video['title'][:50]} ({video['views']:,})")
+                stats['views'] += 1
+                logger.debug(f"❌ 播放量不足: {video['title'][:50]} ({video['views']:,} < {self.min_views:,})")
                 continue
             
             # 规则2：时间检查
             if video['days_ago'] > self.max_days_ago:
-                logger.debug(f"❌ 发布时间过久: {video['title'][:50]} ({video['days_ago']}天前)")
+                stats['time'] += 1
+                logger.debug(f"❌ 发布时间过久: {video['title'][:50]} ({video['days_ago']}天 > {self.max_days_ago}天)")
                 continue
             
-            # 规则3：关键词相关性（基础检查）
-            if not self._is_relevant(video, topic):
-                logger.debug(f"❌ 关键词不相关: {video['title'][:50]}")
-                continue
+            # 注意：我们移除了关键词匹配检查
+            # 原因：YouTube API 已经根据搜索词返回了相关结果
+            # 后续还有 AI 来评估相关性，没必要在这里二次过滤
             
+            stats['passed'] += 1
             filtered.append(video)
         
         # 如果结果太多，按播放量排序并截取
         if len(filtered) > target_count:
             filtered = sorted(filtered, key=lambda x: x['views'], reverse=True)[:target_count]
+            logger.info(f"📊 结果过多，按播放量排序后截取前 {target_count} 个")
         
         logger.info(f"✅ 规则筛选完成: 保留{len(filtered)}个视频")
+        logger.info(f"📊 过滤统计: 播放量不足={stats['views']}, 时间过久={stats['time']}, 通过={stats['passed']}")
         return filtered
     
     def _is_relevant(self, video: Dict, topic: str) -> bool:
