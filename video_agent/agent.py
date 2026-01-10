@@ -4,6 +4,7 @@
 from typing import List, Dict, Optional
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import re
 
 from .fetchers import YouTubeFetcher, InstagramFetcher
 from .analyzers import RuleFilter, AIRanker
@@ -48,12 +49,64 @@ class VideoSearchAgent:
         
         logger.info("✅ 视频搜索 Agent 初始化完成")
     
+    def _detect_chinese(self, text: str) -> bool:
+        """
+        检测文本是否包含中文
+        
+        Args:
+            text: 待检测文本
+            
+        Returns:
+            是否包含中文
+        """
+        return bool(re.search(r'[\u4e00-\u9fff]', text))
+    
+    def _translate_to_english(self, chinese_text: str) -> str:
+        """
+        将中文搜索词翻译成英文关键词
+        
+        Args:
+            chinese_text: 中文搜索词
+            
+        Returns:
+            英文搜索关键词
+        """
+        logger.info(f"🌐 检测到中文输入，正在翻译...")
+        
+        try:
+            prompt = f"""
+请将以下中文搜索词翻译成适合在 YouTube 上搜索的英文关键词。
+
+要求：
+1. 翻译要准确、地道
+2. 适合在 YouTube 上搜索欧美内容
+3. 保持搜索意图不变
+4. 只返回英文关键词，不要解释
+
+中文搜索词：{chinese_text}
+
+英文关键词："""
+            
+            response = self.ai_ranker.model.generate_content(prompt)
+            english_keyword = response.text.strip()
+            
+            # 清理可能的引号或多余符号
+            english_keyword = english_keyword.strip('"\'').strip()
+            
+            logger.info(f"✅ 翻译完成: 「{chinese_text}」 → 「{english_keyword}」")
+            return english_keyword
+            
+        except Exception as e:
+            logger.error(f"翻译失败: {e}")
+            logger.warning("使用原始搜索词")
+            return chinese_text
+    
     def search(self, topic: str, top_n: int = 10) -> List[Dict]:
         """
         搜索热门视频
         
         Args:
-            topic: 搜索主题
+            topic: 搜索主题（支持中文，会自动翻译）
             top_n: 返回的视频数量
             
         Returns:
@@ -63,9 +116,17 @@ class VideoSearchAgent:
         logger.info(f"🎯 开始搜索: {topic}")
         logger.info(f"{'='*60}\n")
         
-        # 检查缓存
+        # 中文自动翻译
+        original_topic = topic
+        if self._detect_chinese(topic):
+            topic = self._translate_to_english(topic)
+            if not topic:  # 翻译失败
+                topic = original_topic
+        
+        # 检查缓存（使用原始搜索词作为key，这样中英文搜索可以共享缓存）
+        cache_key = original_topic
         if self.use_cache:
-            cached_results = self.cache.get(topic)
+            cached_results = self.cache.get(cache_key)
             if cached_results:
                 logger.info("✅ 使用缓存结果")
                 return cached_results[:top_n]
@@ -114,9 +175,9 @@ class VideoSearchAgent:
         )
         logger.info(f"✅ 最终选出 {len(final_results)} 个视频\n")
         
-        # 保存到缓存
+        # 保存到缓存（使用原始搜索词作为key）
         if self.use_cache and final_results:
-            self.cache.set(topic, final_results)
+            self.cache.set(cache_key, final_results)
         
         logger.info(f"{'='*60}")
         logger.info(f"✅ 搜索完成！")

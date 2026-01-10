@@ -205,7 +205,7 @@ col1, col2, col3 = st.columns([2, 3, 2])
 with col2:
     search_query = st.text_input(
         "",
-        placeholder="输入搜索主题（建议使用英文，如：social media marketing）",
+        placeholder="输入搜索主题（支持中文，会自动翻译。如：自媒体运营 / social media marketing）",
         key="search_input",
         label_visibility="collapsed"
     )
@@ -272,8 +272,16 @@ if search_button and search_query:
                 st.error(f"❌ 初始化失败: {e}")
                 st.stop()
     
+    # 检测中文并提示翻译
+    import re
+    is_chinese = bool(re.search(r'[\u4e00-\u9fff]', search_query))
+    
     # 执行搜索
-    with st.spinner(f"🔍 正在搜索「{search_query}」..."):
+    search_text = f"🔍 正在搜索「{search_query}」..."
+    if is_chinese:
+        search_text = f"🌐 检测到中文输入，正在翻译并搜索「{search_query}」..."
+    
+    with st.spinner(search_text):
         try:
             results = st.session_state.agent.search(search_query, top_n=max_results)
             
@@ -286,6 +294,10 @@ if search_button and search_query:
                     'timestamp': datetime.now().isoformat(),
                     'count': len(results)
                 })
+                
+                # 显示翻译信息（如果是中文）
+                if is_chinese:
+                    st.info(f"💡 已自动将中文翻译为英文进行搜索，以获取欧美热门内容")
                 
                 st.success(f"✅ 找到 {len(results)} 个视频！")
             else:
