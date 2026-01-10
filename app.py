@@ -379,9 +379,9 @@ if st.session_state.current_results:
             with col1:
                 # 缩略图
                 if video.get('thumbnail'):
-                    st.image(video['thumbnail'], use_container_width=True)
+                    st.image(video['thumbnail'], use_column_width=True)
                 else:
-                    st.image("https://via.placeholder.com/320x180?text=Video", use_container_width=True)
+                    st.image("https://via.placeholder.com/320x180?text=Video", use_column_width=True)
             
             with col2:
                 # 视频信息
