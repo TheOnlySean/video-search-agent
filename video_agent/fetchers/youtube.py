@@ -71,39 +71,77 @@ class YouTubeFetcher:
             
             videos_response = videos_request.execute()
             
-            # 解析结果并过滤英语视频
+            # 解析结果并过滤欧美英语视频
             videos = []
-            filtered_count = 0
+            filtered_stats = {'non_western': 0, 'other_lang': 0, 'passed': 0}
+            
+            # 接受的欧美英语区域代码
+            western_english_regions = {
+                'en-us', 'en-gb', 'en-ca', 'en-au',  # 美国、英国、加拿大、澳大利亚
+                'en', 'en-nz', 'en-ie',               # 通用英语、新西兰、爱尔兰
+            }
+            
+            # 需要排除的非欧美区域
+            excluded_regions = {
+                'en-in',  # 印度
+                'en-ph',  # 菲律宾
+                'en-pk',  # 巴基斯坦
+                'en-sg',  # 新加坡
+                'en-za',  # 南非
+            }
+            
             for item in videos_response.get('items', []):
                 try:
                     video = self._parse_video(item)
                     
-                    # 过滤：只保留英语视频
+                    # 获取语言信息
                     audio_lang = video.get('audio_language', '').lower()
                     lang = video.get('language', '').lower()
                     
-                    # 检查是否是英语视频
-                    is_english = (
-                        audio_lang.startswith('en') or 
-                        lang.startswith('en') or
-                        # 如果没有语言信息，通过地区判断（美国区搜索默认英语内容）
-                        (not audio_lang and not lang)
-                    )
+                    # 检查主要语言标识
+                    primary_lang = audio_lang or lang or ''
                     
-                    if is_english:
-                        videos.append(video)
+                    # 判断是否是欧美英语视频
+                    is_western_english = False
+                    
+                    if primary_lang:
+                        # 如果明确是排除的区域，直接过滤
+                        if primary_lang in excluded_regions:
+                            filtered_stats['non_western'] += 1
+                            logger.debug(f"❌ 过滤非欧美区域: {video['title'][:50]} ({primary_lang})")
+                            continue
+                        
+                        # 检查是否是接受的欧美英语
+                        if primary_lang in western_english_regions or primary_lang.startswith('en-us') or primary_lang.startswith('en-gb'):
+                            is_western_english = True
+                        elif primary_lang.startswith('en'):
+                            # 如果是其他 en- 开头但不在白名单中，也过滤
+                            filtered_stats['non_western'] += 1
+                            logger.debug(f"❌ 过滤非欧美英语: {video['title'][:50]} ({primary_lang})")
+                            continue
+                        else:
+                            # 非英语
+                            filtered_stats['other_lang'] += 1
+                            logger.debug(f"❌ 过滤非英语: {video['title'][:50]} ({primary_lang})")
+                            continue
                     else:
-                        filtered_count += 1
-                        logger.debug(f"过滤非英语视频: {video['title'][:50]} (语言: {audio_lang or lang or 'unknown'})")
+                        # 没有语言标记，通过美国区域搜索，默认接受
+                        is_western_english = True
+                    
+                    if is_western_english:
+                        filtered_stats['passed'] += 1
+                        videos.append(video)
                         
                 except Exception as e:
                     logger.error(f"解析视频失败: {e}")
                     continue
             
-            if filtered_count > 0:
-                logger.info(f"过滤掉 {filtered_count} 个非英语视频")
+            # 日志统计
+            total_filtered = filtered_stats['non_western'] + filtered_stats['other_lang']
+            if total_filtered > 0:
+                logger.info(f"📊 过滤统计: 非欧美区域={filtered_stats['non_western']}, 其他语言={filtered_stats['other_lang']}")
             
-            logger.info(f"成功获取 {len(videos)} 个英语 YouTube 视频（包含长视频和Shorts）")
+            logger.info(f"✅ 成功获取 {len(videos)} 个欧美英语视频（包含长视频和Shorts）")
             return videos
             
         except Exception as e:
