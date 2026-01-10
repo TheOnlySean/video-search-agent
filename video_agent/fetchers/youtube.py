@@ -39,7 +39,7 @@ class YouTubeFetcher:
             
             logger.info(f"正在搜索 YouTube: 主题='{topic}', 最大结果={max_results}")
             
-            # 第一步：搜索视频
+            # 第一步：搜索视频（包含长视频和Shorts）
             search_request = self.youtube.search().list(
                 part='snippet',
                 q=topic,
@@ -47,8 +47,9 @@ class YouTubeFetcher:
                 publishedAfter=published_after,
                 order='viewCount',  # 按播放量排序
                 maxResults=max_results,
-                regionCode='US',  # 可以根据需要调整地区
-                relevanceLanguage='en'  # 可以根据需要调整语言
+                regionCode='US',  # 美国区域
+                relevanceLanguage='en',  # 英语相关性
+                videoDuration='any'  # 包含所有长度（长视频和Shorts）
             )
             
             search_response = search_request.execute()
@@ -70,17 +71,39 @@ class YouTubeFetcher:
             
             videos_response = videos_request.execute()
             
-            # 解析结果
+            # 解析结果并过滤英语视频
             videos = []
+            filtered_count = 0
             for item in videos_response.get('items', []):
                 try:
                     video = self._parse_video(item)
-                    videos.append(video)
+                    
+                    # 过滤：只保留英语视频
+                    audio_lang = video.get('audio_language', '').lower()
+                    lang = video.get('language', '').lower()
+                    
+                    # 检查是否是英语视频
+                    is_english = (
+                        audio_lang.startswith('en') or 
+                        lang.startswith('en') or
+                        # 如果没有语言信息，通过地区判断（美国区搜索默认英语内容）
+                        (not audio_lang and not lang)
+                    )
+                    
+                    if is_english:
+                        videos.append(video)
+                    else:
+                        filtered_count += 1
+                        logger.debug(f"过滤非英语视频: {video['title'][:50]} (语言: {audio_lang or lang or 'unknown'})")
+                        
                 except Exception as e:
                     logger.error(f"解析视频失败: {e}")
                     continue
             
-            logger.info(f"成功获取 {len(videos)} 个 YouTube 视频")
+            if filtered_count > 0:
+                logger.info(f"过滤掉 {filtered_count} 个非英语视频")
+            
+            logger.info(f"成功获取 {len(videos)} 个英语 YouTube 视频（包含长视频和Shorts）")
             return videos
             
         except Exception as e:
@@ -99,6 +122,7 @@ class YouTubeFetcher:
         """
         snippet = item['snippet']
         statistics = item.get('statistics', {})
+        content_details = item.get('contentDetails', {})
         
         # 解析播放量
         view_count = int(statistics.get('viewCount', 0))
@@ -119,6 +143,13 @@ class YouTubeFetcher:
         channel_id = snippet.get('channelId', '')
         channel_url = f"https://www.youtube.com/channel/{channel_id}" if channel_id else ''
         
+        # 获取视频时长（用于判断是否是 Shorts）
+        duration = content_details.get('duration', '')
+        
+        # 获取语言信息（用于过滤）
+        default_audio_language = snippet.get('defaultAudioLanguage', '')
+        default_language = snippet.get('defaultLanguage', '')
+        
         return {
             'platform': 'YouTube',
             'video_id': video_id,
@@ -133,7 +164,10 @@ class YouTubeFetcher:
             'author_url': channel_url,
             'published_at': published_at.isoformat(),
             'days_ago': days_ago,
-            'tags': snippet.get('tags', [])
+            'tags': snippet.get('tags', []),
+            'duration': duration,
+            'audio_language': default_audio_language,
+            'language': default_language
         }
 
 
