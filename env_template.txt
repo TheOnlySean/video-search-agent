@@ -1,0 +1,37 @@
+# API Keys 配置模板
+# 请将此文件复制为 .env 并填入你的API keys
+# 命令: cp env_template.txt .env
+
+# ============================================
+# 必需的 API Keys
+# ============================================
+
+# Google Gemini API Key (必需)
+# 获取地址: https://ai.google.dev/
+# 用途: AI 内容分析和排序
+# 成本: 单次查询约 $0.03
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# YouTube Data API v3 Key (必需)
+# 获取地址: https://console.cloud.google.com/
+# 用途: 搜索 YouTube 视频
+# 成本: 免费（每天 10,000 配额）
+YOUTUBE_API_KEY=your_youtube_api_key_here
+
+# ============================================
+# 可选配置
+# ============================================
+
+# Instagram 登录信息（可选）
+# 不填也能用，但登录后效果更好
+# 建议使用小号测试
+INSTAGRAM_USERNAME=
+INSTAGRAM_PASSWORD=
+
+# ============================================
+# 系统配置（通常不需要修改）
+# ============================================
+
+# 缓存配置
+CACHE_ENABLED=true
+CACHE_EXPIRY_HOURS=2
