@@ -460,6 +460,9 @@ st.markdown("""
     <p style="font-size: 0.8rem; opacity: 0.6;">
         🎬 视频搜索 Agent - 发现全球优质内容
     </p>
+    <p style="font-size: 0.7rem; opacity: 0.5;">
+        版本: v2.0 (Enhanced AI Analysis) | 最后更新: 2026-01-11
+    </p>
 </div>
 """, unsafe_allow_html=True)
 
