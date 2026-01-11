@@ -417,9 +417,23 @@ if st.session_state.current_results:
                 st.markdown(f"👤 **作者**: [{video['author']}]({video['author_url']})")
                 st.markdown(f"📅 **发布**: {video['days_ago']} 天前")
                 
+                # 钩子文本（如果有）
+                if video.get('hook_text'):
+                    st.markdown(f"🎣 **核心吸引点**: {video['hook_text']}")
+                
+                # 可复制性评分（如果有）
+                if video.get('replicability_score'):
+                    score = video['replicability_score']
+                    emoji = "🟢" if score >= 7 else "🟡" if score >= 4 else "🔴"
+                    st.markdown(f"♻️ **可复制性**: {emoji} {score}/10 分")
+                
+                # 关键学习点（如果有）
+                if video.get('key_takeaway'):
+                    st.success(f"💡 **关键学习点**: {video['key_takeaway']}")
+                
                 # 推荐理由
                 if video.get('recommendation_reason'):
-                    st.info(f"💡 {video['recommendation_reason']}")
+                    st.info(f"⭐ **成功原因**: {video['recommendation_reason']}")
                 
                 # 操作按钮
                 col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])

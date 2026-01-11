@@ -47,30 +47,34 @@ class AIRanker:
             video_texts = []
             for i, video in enumerate(videos):
                 video_text = f"{i+1}. [{video['platform']}] {video['title'][:100]}\n"
+                video_text += f"   作者: {video['author']}\n"
                 video_text += f"   描述: {video['description'][:150]}\n"
                 video_text += f"   播放量: {video['views']:,} | {video['days_ago']}天前\n"
                 video_texts.append(video_text)
             
             prompt = f"""
-你是一个视频内容分析专家。请评估以下视频与主题"{topic}"的相关性。
+你是一个自媒体内容分析专家。请深度分析以下真实YouTube视频与主题"{topic}"的相关性。
+
+⚠️ 重要：这些都是真实存在的视频，有真实的播放量和作者信息。请基于这些真实数据进行分析。
 
 评分标准：
-- 90-100分：完全相关，标题和内容直接匹配主题
-- 70-89分：高度相关，内容涉及主题的核心方面
-- 50-69分：中度相关，部分内容与主题有关
-- 30-49分：弱相关，仅标题提及或间接相关
+- 90-100分：完全相关，内容直接匹配主题，值得深度学习
+- 70-89分：高度相关，涉及主题核心方面，有参考价值
+- 50-69分：中度相关，部分内容相关
+- 30-49分：弱相关，仅标题提及
 - 0-29分：不相关或标题党
 
-视频列表：
+视频列表（真实YouTube数据）：
 {chr(10).join(video_texts)}
 
 请输出JSON数组，每个视频包含：
 - id: 视频序号（1开始）
 - score: 相关性评分（0-100）
-- reason: 简短理由（10字内）
+- reason: 简短理由（15字内）
+- hook: 这个视频的核心吸引点/钩子（15字内，如"7天涨粉10万"）
 
 只输出JSON，不要其他文字：
-[{{"id": 1, "score": 85, "reason": "教程类直接相关"}}, ...]
+[{{"id": 1, "score": 85, "reason": "完整教程覆盖核心要点", "hook": "从0到100万粉丝实战"}}, ...]
 """
             
             # 调用 Gemini
@@ -93,6 +97,7 @@ class AIRanker:
                 if 0 <= idx < len(videos):
                     videos[idx]['ai_score'] = score_item['score']
                     videos[idx]['ai_reason'] = score_item['reason']
+                    videos[idx]['hook_text'] = score_item.get('hook', '')  # 钩子文本
             
             # 筛选高分视频
             filtered = [v for v in videos if v.get('ai_score', 0) >= 70]
@@ -187,7 +192,10 @@ class AIRanker:
                 if 0 <= idx < len(videos):
                     video = videos[idx].copy()
                     video['final_rank'] = rank_item['rank']
-                    video['recommendation_reason'] = rank_item['reason']
+                    video['final_score'] = rank_item.get('finalScore', rank_item.get('score', 0))
+                    video['recommendation_reason'] = rank_item.get('reasonForSuccess', rank_item.get('reason', ''))
+                    video['replicability_score'] = rank_item.get('replicabilityScore', 0)
+                    video['key_takeaway'] = rank_item.get('keyTakeaway', '')
                     ranked_videos.append(video)
             
             # 按排名排序
