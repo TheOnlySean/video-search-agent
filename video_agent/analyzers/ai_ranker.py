@@ -146,29 +146,32 @@ class AIRanker:
                 video_texts.append(video_text)
             
             prompt = f"""
-你是一个视频推荐专家。从以下视频中选出最好的{top_n}个，推荐给对"{topic}"感兴趣的用户。
+你是一个视频推荐专家，擅长分析爆款视频的运营逻辑和可复制性。
+从以下视频中选出最好的{top_n}个，推荐给对"{topic}"感兴趣的欧美自媒体创作者。
+
+⚠️ 重要：这些都是真实存在的视频，有真实的播放量和作者信息。请基于这些真实数据进行分析，不要编造信息。
 
 选择标准：
-1. 相关性：内容与主题高度匹配
+1. 相关性：内容与主题高度匹配，且是欧美创作者的视频
 2. 质量：播放量、互动率显示受欢迎程度
 3. 时效性：较新的视频优先（但不是唯一标准）
-4. 多样性：尽量覆盖主题的不同角度
-5. 平台平衡：YouTube和Instagram都要有代表
+4. 多样性：尽量覆盖主题的不同角度和风格
+5. 深度分析：提取视频的"钩子文本"、"可复制性评分"、"关键学习点"和"成功原因"
 
 候选视频：
 {chr(10).join(video_texts)}
 
-请输出JSON数组，选出最好的{top_n}个视频：
-[
-  {{
-    "rank": 1,
-    "id": 视频序号,
-    "reason": "推荐理由（15字内）"
-  }},
-  ...
-]
+请输出JSON数组，每个视频包含：
+- rank: 最终排名（1到{top_n}）
+- id: 视频序号（1开始）
+- reason: 简短的推荐理由（15字内）
+- hookText: 视频最吸引人的"钩子文本"或核心卖点（20字内）
+- replicabilityScore: 可复制性评分（1-10分，10分表示非常容易复制，1分表示非常难）
+- keyLearningPoints: 视频中可以学习到的关键技巧或策略（20字内，用逗号分隔）
+- reasonForSuccess: 视频成为爆款的主要原因（30字内）
 
-只输出JSON，不要其他文字。
+只输出JSON数组，不要其他文字：
+[{{"rank": 1, "id": 1, "reason": "标题吸引，内容实用", "hookText": "7天涨粉10万实战方法", "replicabilityScore": 8, "keyLearningPoints": "前3秒钩子,清晰框架,强CTA", "reasonForSuccess": "真实案例+详细步骤+可执行建议"}}, ...]
 """
             
             # 调用 Gemini
@@ -193,9 +196,12 @@ class AIRanker:
                     video = videos[idx].copy()
                     video['final_rank'] = rank_item['rank']
                     video['final_score'] = rank_item.get('finalScore', rank_item.get('score', 0))
-                    video['recommendation_reason'] = rank_item.get('reasonForSuccess', rank_item.get('reason', ''))
-                    video['replicability_score'] = rank_item.get('replicabilityScore', 0)
-                    video['key_takeaway'] = rank_item.get('keyTakeaway', '')
+                    video['recommendation_reason'] = rank_item.get('reason', '')
+                    # 新增深度分析字段
+                    video['hookText'] = rank_item.get('hookText', '')
+                    video['replicabilityScore'] = rank_item.get('replicabilityScore', 0)
+                    video['keyLearningPoints'] = rank_item.get('keyLearningPoints', '')
+                    video['reasonForSuccess'] = rank_item.get('reasonForSuccess', '')
                     ranked_videos.append(video)
             
             # 按排名排序
